@@ -1,101 +1,168 @@
--- V 0.1 Proof of concept!
-
-local palette = {}
-local previousPalette = {}
+local palettes = {default = {},new = {}}
 local MaxX,MaxY = term.getSize()
-
-local function setCol(index,R,G,B)
-	term.setPaletteColor(2^index,R/255,G/255,B/255)
+term.setBackgroundColor(colors.black)
+term.clear()
+local function translateHEX(d) -- credit to Lostgallifreyan on Lua-users.org
+   local k,res,I,D="0123456789ABCDEF","",0
+   while d>0 do
+      I=I+1
+      d,D=math.floor(IN/16),math.mod(IN,16)+1
+      res=string.sub(k,D,D)..res
+   end
+   return res
 end
 
-local function storeCurrentPalette()
+local function toHEX(R,G,B)
+	local r,g,b = R*255,G*255,B*255
+	return translateHEX(r)..translateHEX(g)..translateHEX(b)
+end
+local function fromHEX(hex)
+	local r,g,b = hex:sub(1,2),hex:sub(3,4),hex:sub(5,6)
+	return tonumber(r,16),tonumber(g,16),tonumber(b,16)
+end
+local function currentPalette()
+	local p = {}
 	for i=0,15 do
-		palette[i] = {term.getPaletteColor(2^i)}
+		p[i] = {term.getPaletteColor(2^i)} -- p[i] = 3.1415
 	end
-	return {unpack(palette)}
+	return p
 end
+local function setPalette(p)
 
-local function modifyColor(index)
-	local oldPalette = storeCurrentPalette()
-	for i=1,3 do
-		palette[0][i] = palette[index][i]*255
+	for i=0,15 do
+		if type(p[i]) ~= "table" then error("!",2) end
+		term.setPaletteColor(2^i,p[i][1],p[i][2],p[i][3])
 	end
-	currentColorMod = 1
-	while true do
-		local a = {term.getPaletteColor(4)}
-		term.setPaletteColor(4,1,1,1)
-		term.setTextColor(4)
-		term.clear()
-		term.setCursorPos(1,1)
-		term.setBackgroundColor(2^index)
-		print("UP/DOWN - cycle RGB")
-		print("LEFT/RIGHT - change value")
-		print("Enter - confirm")
-		print("Space - Undo & Exit")
-		for i=1,3 do
-			term.setCursorPos(math.floor(MaxX/2)-(i==currentColorMod and 2 or 1),5+i)
-			print((i==currentColorMod and "[" or "")..palette[0][i]..(i==currentColorMod and "]" or ""))
-		end
-		local e = {os.pullEvent("key")}
-		if e[2] == keys.up then
-			currentColorMod = math.max(currentColorMod-1,1)
-		elseif e[2] == keys.down then
-			currentColorMod = math.min(currentColorMod+1,3)
-		elseif e[2] == keys.left then
-			palette[0][currentColorMod] = math.max(palette[0][currentColorMod]-1,0)
-		elseif e[2] == keys.right then
-			palette[0][currentColorMod] = math.min(palette[0][currentColorMod]+1,255)
-		elseif e[2] == keys.enter then
-			setCol(index,palette[0][1],palette[0][2],palette[0][3])
-			return true
-		elseif e[2] == keys.space then
-			setCol(index,oldPalette[index-1][1],oldPalette[index-1][2],oldPalette[index-1][3])
-			return
-		end
-		setCol(index,palette[0][1],palette[0][2],palette[0][3])
-		term.setPaletteColor(4,unpack(a))
-	end	
 end
-
-storeCurrentPalette()
-for i=0,15 do
-	previousPalette[i] = {palette[i][1]*255,palette[i][2]*255,palette[i][3]*255}
+palettes.default = currentPalette()
+palettes.new = currentPalette()
+local function generatePalette(maxR,maxG,maxB,index) -- linear scale from 0,0,0 to values.
+	for i=1,4 do
+		term.setPaletteColor(2^(i+index-1),maxR*i/4,maxG*i/4,maxB*i/4)
+	end
 end
-
-while true do
+local function drawSlider(x,y,b,index) -- x and y pos, color, index for color table
+	generatePalette(b[1],b[2],b[3],index)
+	for i=0,4 do
+		term.setCursorPos(x+i*3,y)
+		term.setTextColor(2^(i+index))
+		if i>0 then
+			term.setBackgroundColor(2^(i+index-1))
+		else
+			term.setBackgroundColor(2^12)
+		end
+		write(i==4 and " " or " *#")
+	end
+end
+local function changeColor(index)
+	palettes.new = currentPalette()
+	term.setPaletteColor(2^15,unpack(palettes.new[index]))
+	term.setPaletteColor(2^14,term.getPaletteColor(2^15))
+	term.setPaletteColor(2^12,0,0,0)
+	term.setPaletteColor(2^13,1,1,1)
+	term.setBackgroundColor(2^12)
 	term.clear()
-	term.setCursorPos(1,1)
-	write("Click on a color to change it!")
-	local c = {"0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"}
-	for i=1,16 do
-		term.setCursorPos(1,i+1)
-		term.blit("   ","000",c[i]:rep(3))
-	end
-	term.setCursorPos(1,MaxY)
-	term.blit("Save & Exit",("0"):rep(11),("5"):rep(11))
-	term.setCursorPos(12,MaxY)
-	term.blit("Exit",("0"):rep(4),("e"):rep(4))
-
-
-	local e = {os.pullEvent("mouse_click")}
-	if e[3] < 4 and e[4] < 18 and e[4] > 1 then
-		modifyColor(e[4]-2)
-	elseif e[4] == MaxY then
-		if e[3] < 12 then
-			term.setCursorPos(1,1)
-			term.setTextColor(1)
-			term.setBackgroundColor(colors.black)
-			term.clear()
-			error("Quit",0)
-		elseif e[3] < 16 then
-			for i=0,15 do
-				setCol(i,previousPalette[i][1],previousPalette[i][2],previousPalette[i][3])
+	local colorChange = 1
+	local temp
+	while true do
+		temp = {term.getPaletteColor(2^14)}
+		term.clear()
+		drawSlider(4,4,{1,0,0},0)
+		drawSlider(4,6,{0,1,0},4)
+		drawSlider(4,8,{0,0,1},8)
+		paintutils.drawFilledBox(2,10,7,15,2^15)
+		paintutils.drawFilledBox(12,10,17,15,2^14)
+		term.setTextColor(2^13)
+		term.setBackgroundColor(2^12)
+		for i=1,3 do
+			term.setCursorPos(30,2+2*i)
+			write(math.floor(255*temp[i]))
+		end
+		term.setCursorPos(1,MaxY)
+		term.setTextColor(2^13)
+		term.setBackgroundColor(2^7)
+		write("Confirm")
+		term.setCursorPos(8,MaxY)
+		term.setBackgroundColor(2^3)
+		write("Cancel")
+		term.setBackgroundColor(2^12)
+		term.setCursorPos(3,2+2*colorChange)
+		write(">")
+		term.setCursorPos(17,2+2*colorChange)
+		write("<")
+		for i=1,3 do
+			term.setCursorPos(4+temp[i]*12,1+2*i)
+			write("v")
+		end
+		local e = {os.pullEvent()}
+		if e[1] == "key" then
+			if e[2] == keys.up then
+				colorChange = math.max(1,colorChange-1)
+			elseif e[2] == keys.down then
+				colorChange = math.min(3,colorChange+1)
+			elseif e[2] == keys.left then
+				temp[colorChange] = math.max(0,temp[colorChange]-(1/255))
+			elseif e[2] == keys.right then
+				temp[colorChange] = math.min(1,temp[colorChange]+(1/255))
+			elseif e[2] == keys.enter then
+				break
+			elseif e[2] == keys.backspace then
+				temp = term.getPaletteColor(2^15)
+				break
 			end
-			term.setCursorPos(1,1)
-			term.setTextColor(1)
-			term.setBackgroundColor(colors.black)
-			term.clear()
-			error("Quit",0)
+		elseif e[1]:sub(1,5) == "mouse" then
+			if e[3] > 3 and e[3] < 17 and e[4] > 2 and e[4] < 9 then
+				colorChange = math.floor((e[4]-1)/2)
+				temp[colorChange] = (e[3]-4)/12
+			elseif e[4] == MaxY then
+				if e[3] < 8 then
+					break
+				elseif e[3] < 14 then
+					temp = {term.getPaletteColor(2^15)}
+					break
+				end
+			end
+		end
+		term.setPaletteColor(2^14,unpack(temp))
+	end
+	palettes.new[index] = {unpack(temp)}
+	setPalette(palettes.new)
+	term.setBackgroundColor(2^15)
+	term.clear()
+end
+while true do
+	for i=0,15 do
+		term.setCursorPos(i*3+4,4)
+		term.setBackgroundColor(2^i)
+		write("   ")
+	end
+	term.setTextColor(colors.white)
+	term.setBackgroundColor(colors.green)
+	term.setCursorPos(1,MaxY)
+	write("Save & Exit")
+	term.setBackgroundColor(colors.red)
+	term.setCursorPos(12,MaxY)
+	write("Cancel & Exit")
+	local selectedIndex = 0
+	local e = {os.pullEvent()}
+	if e[1] == "mouse_click" then
+		if e[4] == 4 then
+			e[3] = math.floor((e[3]-4)/3)
+			if e[3] >= 0 and e[3] < 16 then
+				changeColor(e[3])
+			end
+		elseif e[4] == MaxY then
+			if e[3] < 12 then
+				setPalette(palettes.new)
+				break
+			elseif e[3] < 25 then
+				setPalette(palettes.default)
+				break
+			end
 		end
 	end
 end
+term.setTextColor(colors.white)
+term.setBackgroundColor(colors.black)
+term.clear()
+term.setCursorPos(1,1)
