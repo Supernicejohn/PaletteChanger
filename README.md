@@ -5,4 +5,4 @@ Tested on emulator provided by Wilma456, for full credits see http://www.compute
 Version 0.5:
 RGB Sliders with mouse and keyboard control, instead of just numbers as in previous version.
 
-MIT licence
+MIT license
