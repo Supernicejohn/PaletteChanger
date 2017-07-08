@@ -1,0 +1,4 @@
+Controls:
+Main Color select: Click mouse on colors to edit that color, Save & Exit to save current configuration.
+Color Picker: up/down/left/right to navigate and change RGB sliders, enter to confirm, backspace to cancel,
+click anywhere on a slider to set the value for that slider, Confirm to confirm and Cancel to cancel.
