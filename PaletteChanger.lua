@@ -59,7 +59,7 @@ end
 
 storeCurrentPalette()
 for i=0,15 do
-	previousPalette[i] = {unpack(palette[i])}
+	previousPalette[i] = {palette[i][1]*255,palette[i][2]*255,palette[i][3]*255}
 end
 
 while true do
